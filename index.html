@@ -135,7 +135,7 @@ TEAM.forEach(m=>{
 
   const el = document.createElement("div"); el.className="label";
   el.innerHTML = `${m.name} — ${m.dept}<small>${m.city}, ${m.country}</small>`;
-  const lbl = new CSS2DObject(el); lbl.position.copy(pos.clone().multiplyScalar(1.02)); pins.add(lbl);
+  const lbl = new CSS2DObject(el); lbl.position.copy(pos.clone().normalize().multiplyScalar(R + 1)); pins.add(lbl);
 
   const row = document.createElement("div"); row.className="entry";
   row.innerHTML = `<div class="dot"></div><div class="text"><strong>${m.name}</strong> — ${m.dept}<br><span style="opacity:.85">${m.city}, ${m.country}</span></div>`;
