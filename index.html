@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Team Globe</title>
+  <!-- Three.js core library -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+  <!-- Orbit controls allow the user to rotate/zoom the globe -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/controls/OrbitControls.js"></script>
+  <!-- CSS2DRenderer for simple text labels -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/renderers/CSS2DRenderer.js"></script>
+  <!-- CCapture.js for recording GIFs -->
+  <script src="https://cdn.jsdelivr.net/npm/ccapture.js@1.1.0/build/CCapture.all.min.js"></script>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      font-family: sans-serif;
+      background: #000;
+      color: #fff;
+    }
+    #info {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      padding: 8px 12px;
+      background: rgba(0,0,0,0.5);
+      border-radius: 4px;
+      font-size: 14px;
+      max-width: 250px;
+      line-height: 1.4;
+    }
+    #recordButton {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      padding: 8px 16px;
+      background: #0078D4;
+      border: none;
+      border-radius: 4px;
+      color: #fff;
+      cursor: pointer;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div id="info"></div>
+  <button id="recordButton">Record 12s GIF</button>
+  <script>
+    // Team data with name, department and location (lat, lon)
+    const TEAM = [
+      { name: "Anton", dept: "Engineering", lat: 38.7223, lon: -9.1393 },
+      { name: "Ivan", dept: "Engineering", lat: 44.7866, lon: 20.4489 },
+      { name: "Alex", dept: "Operations", lat: -33.9249, lon: 18.4241 },
+      { name: "George", dept: "Data", lat: -34.6037, lon: -58.3816 },
+      { name: "Vadim", dept: "Founder", lat: -8.65, lon: 115.2167 },
+      { name: "Eugene", dept: "Engineering", lat: -31.9523, lon: 115.8613 },
+      { name: "Dmitry", dept: "Engineering", lat: 52.52, lon: 13.405 },
+      { name: "Mikhail", dept: "Legal", lat: 59.9311, lon: 30.3609 },
+      { name: "Anastasia", dept: "Finance", lat: 55.7558, lon: 37.6173 },
+    ];
+
+    // Helper to convert lat/lon to 3D vector
+    function latLongToVector3(lat, lon, radius) {
+      const phi = (90 - lat) * (Math.PI / 180);
+      const theta = (lon + 180) * (Math.PI / 180);
+      const x = -radius * Math.sin(phi) * Math.cos(theta);
+      const z = radius * Math.sin(phi) * Math.sin(theta);
+      const y = radius * Math.cos(phi);
+      return new THREE.Vector3(x, y, z);
+    }
+
+    // Populate legend text
+    const infoDiv = document.getElementById('info');
+    infoDiv.innerHTML = '<strong>Team locations</strong><br>' + TEAM.map(m => `${m.name} (${m.dept})`).join('<br>');
+
+    // Scene, camera and renderer
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 2000);
+    camera.position.set(0, 0, 350);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    document.body.appendChild(renderer.domElement);
+
+    // CSS2DRenderer for labels
+    const labelRenderer = new THREE.CSS2DRenderer();
+    labelRenderer.setSize(window.innerWidth, window.innerHeight);
+    labelRenderer.domElement.style.position = 'absolute';
+    labelRenderer.domElement.style.top = '0px';
+    labelRenderer.domElement.style.pointerEvents = 'none';
+    document.body.appendChild(labelRenderer.domElement);
+
+    // Lighting
+    const ambient = new THREE.AmbientLight(0xffffff, 0.6);
+    scene.add(ambient);
+    const directional = new THREE.DirectionalLight(0xffffff, 0.6);
+    directional.position.set(5, 3, 5);
+    scene.add(directional);
+
+    // Globe
+    const RADIUS = 120;
+    const sphereGeom = new THREE.SphereGeometry(RADIUS, 64, 64);
+    const textureLoader = new THREE.TextureLoader();
+    const earthTexture = textureLoader.load('https://threejs.org/examples/textures/land_ocean_ice_cloud_2048.jpg');
+    const globeMaterial = new THREE.MeshPhongMaterial({ map: earthTexture });
+    const globe = new THREE.Mesh(sphereGeom, globeMaterial);
+    scene.add(globe);
+
+    // Pins
+    const pinMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+    const pins = [];
+    TEAM.forEach(member => {
+      const pos = latLongToVector3(member.lat, member.lon, RADIUS + 2);
+      const pinGeom = new THREE.SphereGeometry(2.5, 8, 8);
+      const pin = new THREE.Mesh(pinGeom, pinMaterial);
+      pin.position.copy(pos);
+      scene.add(pin);
+      pins.push(pin);
+      // Label
+      const labelDiv = document.createElement('div');
+      labelDiv.className = 'label';
+      labelDiv.textContent = member.name;
+      labelDiv.style.color = '#fff';
+      labelDiv.style.fontSize = '12px';
+      labelDiv.style.fontWeight = 'bold';
+      const labelObj = new THREE.CSS2DObject(labelDiv);
+      labelObj.position.copy(pos.clone().multiplyScalar(1.05));
+      scene.add(labelObj);
+    });
+
+    // Orbit controls
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.enablePan = false;
+    controls.minDistance = 200;
+    controls.maxDistance = 500;
+
+    // Flights logic: pick random flights between members
+    let flightIndex = 0;
+    const FLIGHT_INTERVAL_MS = 3000; // 3 seconds per flight
+    const FLIGHT_DURATION_MS = 3000; // active flight animation time
+    let flightStartTime = 0;
+    let currentFlight = null;
+
+    function createFlightCurve(fromMember, toMember) {
+      const start = latLongToVector3(fromMember.lat, fromMember.lon, RADIUS + 2);
+      const end = latLongToVector3(toMember.lat, toMember.lon, RADIUS + 2);
+      // control point for the arc: raise midpoint above globe
+      const midpoint = start.clone().add(end).multiplyScalar(0.5);
+      midpoint.normalize().multiplyScalar(RADIUS * 1.8);
+      return new THREE.QuadraticBezierCurve3(start, midpoint, end);
+    }
+
+    // Precompute all possible flight curves
+    const flightCurves = [];
+    for (let i = 0; i < TEAM.length; i++) {
+      for (let j = 0; j < TEAM.length; j++) {
+        if (i !== j) {
+          flightCurves.push({ curve: createFlightCurve(TEAM[i], TEAM[j]), from: TEAM[i], to: TEAM[j] });
+        }
+      }
+    }
+
+    // Shuffle flights for variety
+    flightCurves.sort(() => Math.random() - 0.5);
+
+    let flightLine = null;
+    let flightMarker = null;
+
+    function startNextFlight() {
+      currentFlight = flightCurves[flightIndex % flightCurves.length];
+      flightIndex++;
+      flightStartTime = performance.now();
+      // Initialize line geometry
+      const points = currentFlight.curve.getPoints(64);
+      const geometry = new THREE.BufferGeometry().setFromPoints(points);
+      const material = new THREE.LineBasicMaterial({ color: 0xffff00 });
+      if (flightLine) scene.remove(flightLine);
+      flightLine = new THREE.Line(geometry, material);
+      flightLine.visible = false;
+      scene.add(flightLine);
+      // Marker
+      if (flightMarker) scene.remove(flightMarker);
+      const markerGeom = new THREE.SphereGeometry(3, 8, 8);
+      const markerMat = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+      flightMarker = new THREE.Mesh(markerGeom, markerMat);
+      flightMarker.visible = false;
+      scene.add(flightMarker);
+    }
+
+    startNextFlight();
+
+    // CCapture setup
+    let capturer = null;
+    const recordButton = document.getElementById('recordButton');
+    recordButton.addEventListener('click', () => {
+      if (capturer) return; // already recording
+      // Create new capturer for GIF
+      capturer = new CCapture({ format: 'gif', workersPath: '', framerate: 15 });
+      capturer.start();
+      // Automatically stop after 12 seconds (12 * 1000 ms)
+      setTimeout(() => {
+        capturer.stop();
+        capturer.save();
+        capturer = null;
+      }, 12000);
+    });
+
+    // Auto start recording if URL contains ?autogif=1
+    if (window.location.search.includes('autogif=1')) {
+      // trigger click after short delay to ensure scene is ready
+      setTimeout(() => {
+        recordButton.click();
+      }, 500);
+    }
+
+    // Resize handling
+    window.addEventListener('resize', () => {
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+      renderer.setSize(width, height);
+      labelRenderer.setSize(width, height);
+    });
+
+    // Animation loop
+    function animate() {
+      requestAnimationFrame(animate);
+      // Rotate globe slowly
+      globe.rotation.y += 0.0015;
+      // Update flights
+      const now = performance.now();
+      if (currentFlight) {
+        const elapsed = now - flightStartTime;
+        if (elapsed > FLIGHT_INTERVAL_MS) {
+          startNextFlight();
+        } else {
+          const t = Math.min(elapsed / FLIGHT_DURATION_MS, 1);
+          // reveal line gradually
+          if (flightLine) {
+            flightLine.visible = true;
+            const total = flightLine.geometry.attributes.position.count;
+            const drawCount = Math.floor(total * t);
+            flightLine.geometry.setDrawRange(0, drawCount);
+          }
+          // move marker
+          if (flightMarker) {
+            flightMarker.visible = true;
+            const point = currentFlight.curve.getPoint(Math.min(t, 1));
+            flightMarker.position.copy(point);
+          }
+        }
+      }
+      controls.update();
+      renderer.render(scene, camera);
+      labelRenderer.render(scene, camera);
+      if (capturer) capturer.capture(renderer.domElement);
+    }
+    animate();
+  </script>
+</body>
+</html>
