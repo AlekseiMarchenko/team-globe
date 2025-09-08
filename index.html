@@ -5,19 +5,19 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Team Globe – Pins + Flights + GIF</title>
 <style>
-  :root { --bg:#0b0f1a; --fg:#e6e8ee; }
-  html,body { height:100%; margin:0; }
-  body { background:var(--bg); color:var(--fg); font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji"; overflow:hidden; }
-  #app { position:fixed; inset:0; }
-  #hud { position:fixed; left:16px; top:16px; display:flex; gap:8px; z-index:20; }
-  #legend { position:fixed; right:16px; top:16px; z-index:20; background:rgba(21,27,44,.75); border:1px solid rgba(255,255,255,.08); border-radius:14px; padding:10px 12px; max-width:360px; }
-  #legend h3 { margin:0 0 6px 0; font-size:14px; opacity:.8; letter-spacing:.02em; text-transform:uppercase; }
-  #legend .entry{display:grid;grid-template-columns:12px 1fr;gap:8px;padding:6px 0;border-bottom:1px dashed rgba(255,255,255,.08)}
-  #legend .dot{width:10px;height:10px;border-radius:999px;background:#ff5252;box-shadow:0 0 10px rgba(255,82,82,.9);margin-top:3px}
-  #legend .text{font-size:13px;line-height:1.25}
+  :root{--bg:#0b0f1a;--fg:#e6e8ee}
+  html,body{height:100%;margin:0}
+  body{background:var(--bg);color:var(--fg);font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji";overflow:hidden}
+  #app{position:fixed;inset:0}
+  #hud{position:fixed;left:16px;top:16px;display:flex;gap:8px;z-index:20}
   .btn{cursor:pointer;border:1px solid rgba(255,255,255,.12);color:var(--fg);background:rgba(255,255,255,.06);padding:8px 12px;border-radius:10px;font-weight:600}
   .btn:hover{background:rgba(255,255,255,.14)}
   .card{background:rgba(21,27,44,.7);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:10px 12px}
+  #legend{position:fixed;right:16px;top:16px;z-index:20;max-width:360px}
+  #legend h3{margin:0 0 6px 0;font-size:14px;opacity:.8;letter-spacing:.02em;text-transform:uppercase}
+  #legend .entry{display:grid;grid-template-columns:12px 1fr;gap:8px;padding:6px 0;border-bottom:1px dashed rgba(255,255,255,.08)}
+  #legend .dot{width:10px;height:10px;border-radius:999px;background:#ff5252;box-shadow:0 0 10px rgba(255,82,82,.9);margin-top:3px}
+  #legend .text{font-size:13px;line-height:1.25}
   .label{color:#fff;background:rgba(10,14,25,.6);border:1px solid rgba(255,255,255,.1);padding:4px 6px;border-radius:8px;font-size:12px;font-weight:700;white-space:nowrap;text-shadow:0 0 6px rgba(0,0,0,.7)}
   .label small{display:block;font-weight:500;font-size:11px;opacity:.9}
   #notice{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);font-size:12px;opacity:.8}
@@ -40,12 +40,16 @@
 
 <div id="notice">Tip: Click & drag to orbit. Scroll to zoom. Add <code>?autogif=1</code> to auto-record.</div>
 
-<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/controls/OrbitControls.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/renderers/CSS2DRenderer.js"></script>
+<!-- CCapture stays as classic script (non-module) -->
 <script src="https://cdn.jsdelivr.net/npm/ccapture.js@1.1.0/build/CCapture.all.min.js"></script>
 
-<script>
+<!-- Everything else as ES modules -->
+<script type="module">
+import * as THREE from "https://esm.sh/three@0.160.0";
+import { OrbitControls } from "https://esm.sh/three@0.160.0/examples/jsm/controls/OrbitControls.js";
+import { CSS2DRenderer, CSS2DObject } from "https://esm.sh/three@0.160.0/examples/jsm/renderers/CSS2DRenderer.js";
+
+/* ==== DATA ==== */
 const TEAM = [
   { name:"Anton", dept:"Engineering", city:"Lisbon", country:"Portugal", lat:38.7223, lon:-9.1393 },
   { name:"Ivan", dept:"Engineering", city:"Belgrade", country:"Serbia", lat:44.7866, lon:20.4489 },
@@ -58,47 +62,56 @@ const TEAM = [
   { name:"Anastasia", dept:"Finance", city:"Moscow", country:"Russia", lat:55.7558, lon:37.6173 },
 ];
 
-const R = 150, ROT = 0.001, FLIGHT_INT = 3600, FLIGHT_MS = 2600;
+const R=150, ROT=0.001, FLIGHT_INT=3600, FLIGHT_MS=2600;
 
-const el = document.getElementById('app');
+/* ==== SCENE ==== */
+const container = document.getElementById("app");
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(40, innerWidth/innerHeight, 0.1, 2000);
 camera.position.set(0,0,430);
 
-const renderer = new THREE.WebGLRenderer({ antialias:true, preserveDrawingBuffer:true });
+const renderer = new THREE.WebGLRenderer({antialias:true, preserveDrawingBuffer:true});
 renderer.setSize(innerWidth, innerHeight);
 renderer.setPixelRatio(Math.min(devicePixelRatio,2));
 renderer.setClearColor(0x060913,1);
-el.appendChild(renderer.domElement);
+container.appendChild(renderer.domElement);
 
-const labels = new THREE.CSS2DRenderer();
-labels.setSize(innerWidth, innerHeight);
-labels.domElement.style.position='absolute';
-labels.domElement.style.top='0';
-labels.domElement.style.pointerEvents='none';
-el.appendChild(labels.domElement);
+const labelRenderer = new CSS2DRenderer();
+labelRenderer.setSize(innerWidth, innerHeight);
+labelRenderer.domElement.style.position='absolute';
+labelRenderer.domElement.style.top='0';
+labelRenderer.domElement.style.pointerEvents='none';
+container.appendChild(labelRenderer.domElement);
 
-const controls = new THREE.OrbitControls(camera, labels.domElement);
+const controls = new OrbitControls(camera, labelRenderer.domElement);
 controls.enableDamping=true; controls.enablePan=false; controls.minDistance=220; controls.maxDistance=600;
 
 scene.add(new THREE.AmbientLight(0x9aa4b2, .85));
 const dir = new THREE.DirectionalLight(0xffffff, 1); dir.position.set(5,3,5); scene.add(dir);
 
-// globe with fallback + outline
-const globeGeo = new THREE.SphereGeometry(R, 96, 96);
-const globeMat = new THREE.MeshPhongMaterial({ color:0x2a6fb3, shininess:7, specular:new THREE.Color(0x202020) });
-const globe = new THREE.Mesh(globeGeo, globeMat); scene.add(globe);
-const outline = new THREE.Mesh(new THREE.SphereGeometry(R+0.8,64,64), new THREE.MeshBasicMaterial({color:0x3fa9ff,transparent:true,opacity:.18,blending:THREE.AdditiveBlending}));
-scene.add(outline);
+/* ==== GLOBE ==== */
+const globe = new THREE.Mesh(
+  new THREE.SphereGeometry(R, 96, 96),
+  new THREE.MeshPhongMaterial({ color:0x2a6fb3, shininess:7, specular:new THREE.Color(0x202020) })
+);
+scene.add(globe);
+
+// outline (visible even w/o texture)
+scene.add(new THREE.Mesh(
+  new THREE.SphereGeometry(R+0.8, 64, 64),
+  new THREE.MeshBasicMaterial({ color:0x3fa9ff, transparent:true, opacity:.18, blending:THREE.AdditiveBlending })
+));
 
 // CORS-safe texture
-const loader = new THREE.TextureLoader(); loader.setCrossOrigin('anonymous');
-loader.load('https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg',
-  tex=>{ tex.anisotropy = renderer.capabilities.getMaxAnisotropy?.()||1; globe.material.map=tex; globe.material.needsUpdate=true; },
+new THREE.TextureLoader().load(
+  "https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg",
+  tex => { tex.anisotropy = renderer.capabilities.getMaxAnisotropy?.()||1; globe.material.map=tex; globe.material.needsUpdate=true; },
   undefined,
-  ()=>console.warn('Texture failed; using fallback color')
+  () => console.warn("Texture failed; using fallback color.")
 );
 
+/* ==== Helpers ==== */
+const legendBody = document.getElementById("legendBody");
 function latLonToVec3(lat, lon, r=R, h=0){
   const phi=(90-lat)*Math.PI/180, theta=(lon+180)*Math.PI/180;
   const x=-(r+h)*Math.sin(phi)*Math.cos(theta);
@@ -107,74 +120,76 @@ function latLonToVec3(lat, lon, r=R, h=0){
   return new THREE.Vector3(x,y,z);
 }
 
-// pins + labels
+/* ==== Pins & Labels ==== */
 const pins = new THREE.Group(); scene.add(pins);
 const pinMat = new THREE.MeshBasicMaterial({ color:0xff5252 });
 const pinGeo = new THREE.SphereGeometry(2.4, 16, 16);
-const legend = document.getElementById('legendBody');
 
 TEAM.forEach(m=>{
   const pos = latLonToVec3(m.lat,m.lon,R,1.6);
+
   const ball = new THREE.Mesh(pinGeo, pinMat); ball.position.copy(pos);
-  const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.5,0.5,6,10), new THREE.MeshBasicMaterial({color:0xff7777}));
-  stem.position.copy(pos.clone().multiplyScalar(0.985)); stem.lookAt(new THREE.Vector3(0,0,0));
+  const stem = new THREE.Mesh(new THREE.CylinderGeometry(.5,.5,6,10), new THREE.MeshBasicMaterial({color:0xff7777}));
+  stem.position.copy(pos.clone().multiplyScalar(0.985)); stem.lookAt(0,0,0);
   pins.add(ball, stem);
 
-  const el = document.createElement('div'); el.className='label';
+  const el = document.createElement("div"); el.className="label";
   el.innerHTML = `${m.name} — ${m.dept}<small>${m.city}, ${m.country}</small>`;
-  const lbl = new THREE.CSS2DObject(el); lbl.position.copy(pos.clone().multiplyScalar(1.02)); pins.add(lbl);
+  const lbl = new CSS2DObject(el); lbl.position.copy(pos.clone().multiplyScalar(1.02)); pins.add(lbl);
 
-  const row = document.createElement('div'); row.className='entry';
+  const row = document.createElement("div"); row.className="entry";
   row.innerHTML = `<div class="dot"></div><div class="text"><strong>${m.name}</strong> — ${m.dept}<br><span style="opacity:.85">${m.city}, ${m.country}</span></div>`;
-  legend.appendChild(row);
+  legendBody.appendChild(row);
 });
 
-// flights
+/* ==== Flights ==== */
 const flights = new THREE.Group(); scene.add(flights);
 let active=null, last=0;
+
 function circle(a,b,seg=128,h=24){
   const s=latLonToVec3(a.lat,a.lon), e=latLonToVec3(b.lat,b.lon);
   const mid=s.clone().add(e).multiplyScalar(.5).normalize().multiplyScalar(R+h);
-  const curve = new THREE.QuadraticBezierCurve3(s,mid,e);
+  const curve=new THREE.QuadraticBezierCurve3(s,mid,e);
   return {curve, pts:curve.getPoints(seg)};
 }
-function createFlight(a,b){
-  const {curve,pts} = circle(a,b);
-  const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({color:0xfff3a1,transparent:true,opacity:0}));
-  const mover = new THREE.Mesh(new THREE.SphereGeometry(1.8,12,12), new THREE.MeshBasicMaterial({color:0xffffcc}));
+function makeFlight(a,b){
+  const {curve,pts}=circle(a,b);
+  const line=new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({color:0xfff3a1,transparent:true,opacity:0}));
+  const mover=new THREE.Mesh(new THREE.SphereGeometry(1.8,12,12), new THREE.MeshBasicMaterial({color:0xffffcc}));
   mover.position.copy(pts[0]); flights.add(line,mover);
   return {curve,line,mover};
 }
-function schedule(){ if(TEAM.length<2) return; const i=Math.floor(Math.random()*TEAM.length); let j=Math.floor(Math.random()*TEAM.length); if(j===i) j=(j+1)%TEAM.length;
-  const f=createFlight(TEAM[i],TEAM[j]); const now=performance.now(); active={...f,start:now,end:now+FLIGHT_MS}; }
+function schedule(){ if(TEAM.length<2)return; const i=Math.floor(Math.random()*TEAM.length); let j=Math.floor(Math.random()*TEAM.length); if(j===i) j=(j+1)%TEAM.length;
+  const f=makeFlight(TEAM[i],TEAM[j]); const now=performance.now(); active={...f,start:now,end:now+FLIGHT_MS}; }
 
-// recording
-let spin=true; const tog=document.getElementById('toggleSpin'); tog.onclick=()=>{ spin=!spin; tog.textContent=spin?'Pause Spin':'Resume Spin'; };
-let cap=null, recording=false, recLight=document.getElementById('recLight');
-function start(){ cap=new CCapture({format:'gif',framerate:60,quality:10}); cap.start(); recording=true; recLight.style.display='inline-block'; }
-function stop(){ recording=false; recLight.style.display='none'; cap.stop(); cap.save(); }
-document.getElementById('recordBtn').onclick=()=>{ if(!recording) start(); };
-if(new URLSearchParams(location.search).get('autogif')==='1') addEventListener('load',()=>setTimeout(()=>{ if(!recording) start(); },800));
+/* ==== Recording ==== */
+let spin=true; const tog=document.getElementById("toggleSpin"); tog.onclick=()=>{ spin=!spin; tog.textContent=spin?"Pause Spin":"Resume Spin"; };
+let cap=null, recording=false, recLight=document.getElementById("recLight");
+function start(){ cap=new CCapture({format:"gif",framerate:60,quality:10}); cap.start(); recording=true; recLight.style.display="inline-block"; }
+function stop(){ recording=false; recLight.style.display="none"; cap.stop(); cap.save(); }
+document.getElementById("recordBtn").onclick=()=>{ if(!recording) start(); };
+if(new URLSearchParams(location.search).get("autogif")==="1") addEventListener("load",()=>setTimeout(()=>{ if(!recording) start(); },800));
 
+/* ==== Loop ==== */
 function animate(){
   requestAnimationFrame(animate);
   if(spin){ globe.rotation.y+=ROT; pins.rotation.y+=ROT; flights.rotation.y+=ROT; }
   const t=performance.now();
   if(!active){ if(t-last>FLIGHT_INT){ schedule(); last=t; } }
   else{
-    const {curve,line,mover,start,end} = active;
+    const {curve,line,mover,start,end}=active;
     const p=Math.min(1,Math.max(0,(t-start)/(end-start))); const eased=(1-Math.cos(Math.PI*p))/2;
     mover.position.copy(curve.getPoint(eased));
-    const m=line.material; const fadeIn=Math.min(1,eased*3); const fadeOut=Math.max(0,1-Math.max(0,(eased-.6))/.4); m.opacity=.85*Math.min(fadeIn,fadeOut);
-    if(p>=1){ flights.remove(line); line.geometry.dispose(); line.material.dispose();
-              flights.remove(mover); mover.geometry.dispose(); mover.material.dispose(); active=null; }
+    const m=line.material; const fadeIn=Math.min(1,eased*3), fadeOut=Math.max(0,1-Math.max(0,(eased-.6))/.4);
+    m.opacity=.85*Math.min(fadeIn,fadeOut);
+    if(p>=1){ flights.remove(line); line.geometry.dispose(); line.material.dispose(); flights.remove(mover); mover.geometry.dispose(); mover.material.dispose(); active=null; }
   }
-  controls.update(); renderer.render(scene,camera); labels.render(scene,camera);
+  controls.update(); renderer.render(scene,camera); labelRenderer.render(scene,camera);
   if(recording && cap){ cap.capture(renderer.domElement); if(performance.now()-last>12000) stop(); }
 }
 animate();
 
-addEventListener('resize', ()=>{ camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth,innerHeight); labels.setSize(innerWidth,innerHeight); });
+addEventListener("resize", ()=>{ camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth,innerHeight); labelRenderer.setSize(innerWidth,innerHeight); });
 setTimeout(()=>{ schedule(); last=performance.now(); }, 900);
 </script>
 </body>
